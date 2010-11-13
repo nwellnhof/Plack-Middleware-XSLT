@@ -1,0 +1,4 @@
+.*.swp
+.build/
+Plack-Middleware-XSLT-*/
+Plack-Middleware-XSLT-*.tar.gz
