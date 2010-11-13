@@ -235,8 +235,8 @@ __END__
 
 Plack::Middleware::XSLT converts XML response bodies to HTML, XML, or text
 using XML::LibXSLT. The XSLT stylesheet is specified by the environment
-variable 'xslt.style'. This rather crude mechanism might be enhanced in
-the future.
+variable 'xslt.style'. If this variable is undefined or empty, the response
+is not altered. This rather crude mechanism might be enhanced in the future.
 
 The Content-Type header is set according to xsl:output. Content-Length is
 adjusted.
