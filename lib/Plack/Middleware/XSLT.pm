@@ -35,7 +35,7 @@ sub abs_style {
 
     if (!File::Spec->file_name_is_absolute($style)) {
         my $path = $self->path;
-        $style = File::Spec->rel2abs($style, $path) if defined($path);
+        $style = File::Spec->catdir($path, $style) if defined($path);
     }
 
     return Cwd::abs_path($style);
