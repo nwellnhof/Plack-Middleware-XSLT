@@ -1,13 +1,14 @@
 #! perl -w
 use strict;
 
-use Test::More tests => 13;
+use Test::More tests => 16;
 use Test::Deep;
 
 BEGIN {
     use_ok('Plack::Middleware::XSLT');
 }
 
+use File::Touch;
 use HTTP::Request::Common;
 use Plack::Test;
 
@@ -80,6 +81,19 @@ test_psgi $app, sub {
     }, 'dependencies');
 
     is($xslt->cache_hits, 0, 'cache hits before');
+
+    $res = $cb->(GET "/doc.xml");
+    is($res->content, $expected_content, 'response content');
+    is($res->code, 200, 'response code');
+    is($xslt->cache_hits, 1, 'cache hits after');
+
+    my $time = time() - 5;
+    my $touch = File::Touch->new(
+        no_create => 1,
+        atime     => $time,
+        mtime     => $time,
+    );
+    $touch->touch('t/xsl/import_import.xsl');
 
     $res = $cb->(GET "/doc.xml");
     is($res->content, $expected_content, 'response content');

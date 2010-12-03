@@ -140,7 +140,11 @@ sub parse_stylesheet_file {
             while (my ($path, $cached_time) = each(%$deps)) {
                 my @stat = stat($path);
                 my $mtime = @stat ? $stat[9] : -1;
-                $stale = $mtime != $cached_time;
+
+                if ($mtime != $cached_time) {
+                    $stale = 1;
+                    last;
+                }
             }
 
             if (!$stale) {
