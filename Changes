@@ -1,5 +1,8 @@
 Revision history for Perl extension Plack::Middleware::XSLT
 
+0.10002
+        - Add Test::Deep to TestRequires
+
 0.10001
         - Fix caching bug
 
