@@ -1,5 +1,8 @@
 Revision history for Perl extension Plack::Middleware::XSLT
 
+0.10003
+        - Fix prereqs for Plack < 0.99
+
 0.10002
         - Add Test::Deep to TestRequires
 
