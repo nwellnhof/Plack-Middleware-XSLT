@@ -1,7 +1,7 @@
 #! perl -w
 use strict;
 
-use Test::More tests => 16;
+use Test::More tests => 14;
 use Test::Deep;
 
 BEGIN {
@@ -66,26 +66,12 @@ test_psgi $app, sub {
     is($res->code, 200, 'response code');
     is($res->content_type, 'text/html', 'response content type');
     is(lc($res->content_type_charset), 'utf-8', 'response charset');
-
-    my ($cached_ss, $cached_time, $deps) = $xslt->cache_record('master.xsl');
-    ok($cached_ss, 'cached stylesheet');
-
-    my $timestamp = re(qr/^\d+\z/);
-    cmp_deeply($deps, {
-        $xslt->abs_style('import.xsl')          => $timestamp,
-        $xslt->abs_style('import_import.xsl')   => $timestamp,
-        $xslt->abs_style('import_include.xsl')  => $timestamp,
-        $xslt->abs_style('include.xsl')         => $timestamp,
-        $xslt->abs_style('include_import.xsl')  => $timestamp,
-        $xslt->abs_style('include_include.xsl') => $timestamp,
-    }, 'dependencies');
-
-    is($xslt->cache_hits, 0, 'cache hits before');
+    is($xslt->_cache_hits, 0, 'cache hits before');
 
     $res = $cb->(GET "/doc.xml");
     is($res->content, $expected_content, 'response content');
     is($res->code, 200, 'response code');
-    is($xslt->cache_hits, 1, 'cache hits after');
+    is($xslt->_cache_hits, 1, 'cache hits after');
 
     my $time = time() - 5;
     my $touch = File::Touch->new(
@@ -98,6 +84,6 @@ test_psgi $app, sub {
     $res = $cb->(GET "/doc.xml");
     is($res->content, $expected_content, 'response content');
     is($res->code, 200, 'response code');
-    is($xslt->cache_hits, 1, 'cache hits after');
+    is($xslt->_cache_hits, 1, 'cache hits after');
 };
 
