@@ -5,6 +5,7 @@ use strict;
 
 use parent 'Plack::Middleware';
 
+use File::Spec;
 use HTTP::Exception;
 use Plack::Response;
 use Plack::Util::Accessor qw(cache path parser_options);
@@ -23,7 +24,8 @@ sub call {
     return $r if !defined($style) || $style eq '';
 
     my $path = $self->path;
-    $style = "$path/$style" if defined($path);
+    $style = File::Spec->catfile($path, $style)
+        if defined($path) && !File::Spec->file_name_is_absolute($style);
 
     my ($status, $headers, $body) = @$r;
     my $doc = $self->_parse_body($body);
