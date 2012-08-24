@@ -150,7 +150,7 @@ Defaults to the current directory.
     enable 'XSLT', parser_options => \%options;
 
 Options that will be passed to the XML parser when parsing the input
-document. See L<XML::LibXML::Parser/"Parser-Options">.
+document. See L<XML::LibXML::Parser/"PARSER OPTIONS">.
 
 =back
 
