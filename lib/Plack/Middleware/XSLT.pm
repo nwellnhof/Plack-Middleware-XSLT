@@ -6,7 +6,7 @@ use strict;
 use parent 'Plack::Middleware';
 
 use File::Spec;
-use HTTP::Exception;
+use HTTP::Exception ();
 use Plack::Response;
 use Plack::Util::Accessor qw(cache path parser_options);
 use Try::Tiny;
