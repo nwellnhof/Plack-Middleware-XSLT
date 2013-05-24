@@ -1,5 +1,8 @@
 Revision history for Perl extension Plack::Middleware::XSLT
 
+0.20001  2013-05-24
+        - Improve startup speed
+
 0.20000  2012-08-24
         - Major rewrite
         - Use XML::LibXML::Cache for stylesheet cache
