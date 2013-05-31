@@ -156,5 +156,11 @@ document. See L<XML::LibXML::Parser/"PARSER OPTIONS">.
 
 =back
 
+=head1 HTTP EXCEPTIONS
+
+If the transform exits via C<<xsl:message terminate="yes">> and the
+message contains a line starting with a three-digit HTTP response status
+code, a corresponding L<HTTP::Exception> is thrown.
+
 =cut
 
