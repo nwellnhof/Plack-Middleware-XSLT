@@ -1,7 +1,13 @@
 Revision history for Perl extension Plack::Middleware::XSLT
 
+0.20002  2013-05-31
+        - Fix tests on Windows
+        - Document HTTP::Exception feature
+
 0.20001  2013-05-24
         - Improve startup speed
+        - Allow absolute stylesheet paths
+        - Use File::Spec for path operations
 
 0.20000  2012-08-24
         - Major rewrite
