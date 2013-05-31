@@ -51,25 +51,32 @@ ok($app, 'middleware wrap');
 my $expected_content = <<'EOF';
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
-  <title>Test</title>
-  <body>
-    <h1>Test</h1>
-  </body>
+<title>Test</title>
+<body>
+<h1>Test</h1>
+</body>
 </html>
 EOF
 
 test_psgi $app, sub {
     my $cb = shift;
 
-    my $res = $cb->(GET "/doc.xml");
-    is($res->content, $expected_content, 'response content');
+    my ($res, $content);
+
+    $res = $cb->(GET "/doc.xml");
+    $content = $res->decoded_content;
+    # It seems that some Windows setups don't indent the result.
+    $content =~ s/^\s+//gm;
+    is($content, $expected_content, 'response content');
     is($res->code, 200, 'response code');
     is($res->content_type, 'text/html', 'response content type');
     is(lc($res->content_type_charset), 'utf-8', 'response charset');
     is($xslt->_cache_hits, 0, 'cache hits before');
 
     $res = $cb->(GET "/doc.xml");
-    is($res->content, $expected_content, 'response content');
+    $content = $res->decoded_content;
+    $content =~ s/^\s+//gm;
+    is($content, $expected_content, 'response content');
     is($res->code, 200, 'response code');
     is($xslt->_cache_hits, 1, 'cache hits after');
 
@@ -82,7 +89,9 @@ test_psgi $app, sub {
     $touch->touch('t/xsl/import_import.xsl');
 
     $res = $cb->(GET "/doc.xml");
-    is($res->content, $expected_content, 'response content');
+    $content = $res->decoded_content;
+    $content =~ s/^\s+//gm;
+    is($content, $expected_content, 'response content');
     is($res->code, 200, 'response code');
     is($xslt->_cache_hits, 1, 'cache hits after');
 };
