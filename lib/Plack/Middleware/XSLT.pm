@@ -1,5 +1,6 @@
 package Plack::Middleware::XSLT;
 use strict;
+use warnings;
 
 # ABSTRACT: XSLT transformations with Plack
 
