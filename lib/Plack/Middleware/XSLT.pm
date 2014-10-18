@@ -8,7 +8,6 @@ use parent 'Plack::Middleware';
 
 use File::Spec;
 use HTTP::Exception ();
-use Plack::Response;
 use Plack::Util::Accessor qw(cache path parser_options);
 use Try::Tiny;
 use XML::LibXML 1.62;
@@ -28,16 +27,19 @@ sub call {
     $style = File::Spec->catfile($path, $style)
         if defined($path) && !File::Spec->file_name_is_absolute($style);
 
-    my ($status, $headers, $body) = @$r;
-    my $doc = $self->_parse_body($body);
+    my $doc = $self->_parse_body($r->[2]);
 
     my ($output, $media_type, $encoding) = $self->_xform($style, $doc);
 
-    my $res = Plack::Response->new($status, $headers, $output);
-    $res->content_type("$media_type; charset=$encoding");
-    $res->content_length(length($output));
+    my $headers = Plack::Util::headers($r->[1]);
+    $headers->remove('Content-Encoding');
+    $headers->remove('Transfer-Encoding');
+    $headers->set('Content-Type', "$media_type; charset=$encoding");
+    $headers->set('Content-Length', length($output));
 
-    return $res->finalize();
+    $r->[2] = [ $output ];
+
+    return $r;
 }
 
 sub _xform {
