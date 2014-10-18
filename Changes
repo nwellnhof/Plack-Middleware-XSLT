@@ -1,5 +1,12 @@
 Revision history for Perl extension Plack::Middleware::XSLT
 
+0.30  2014-10-18
+        - Support PSGI streaming
+        - Remove dependency on HTTP::Exception
+        - Remove dependency on Plack::Response
+        - Remove dependency on Test::Deep
+        - Minor cleanups
+
 0.20002  2013-05-31
         - Fix tests on Windows
         - Document HTTP::Exception feature
