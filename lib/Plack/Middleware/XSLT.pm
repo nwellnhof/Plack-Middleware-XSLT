@@ -7,6 +7,7 @@ use warnings;
 use parent 'Plack::Middleware';
 
 use File::Spec;
+use Plack::Util;
 use Plack::Util::Accessor qw(cache path parser_options);
 use Try::Tiny;
 use XML::LibXML 1.62;
@@ -17,69 +18,93 @@ my ($parser, $xslt);
 sub call {
     my ($self, $env) = @_;
 
-    my $r     = $self->app->($env);
-    my $style = $env->{'xslt.style'};
+    my $res = $self->app->($env);
 
-    return $r if !defined($style) || $style eq '';
+    Plack::Util::response_cb($res, sub {
+        my $res = shift;
 
-    my $path = $self->path;
-    $style = File::Spec->catfile($path, $style)
-        if defined($path) && !File::Spec->file_name_is_absolute($style);
+        my $xsl_file = $env->{'xslt.style'};
+        return if !defined($xsl_file) || $xsl_file eq '';
 
-    my $headers = Plack::Util::headers($r->[1]);
-    $headers->remove('Content-Encoding');
-    $headers->remove('Transfer-Encoding');
-
-    my $doc = $self->_parse_body($r->[2]);
-
-    if (!$xslt) {
-        if ($self->cache) {
-            require XML::LibXSLT::Cache;
-            $xslt = XML::LibXSLT::Cache->new;
-        }
-        else {
-            $xslt = XML::LibXSLT->new;
-        }
-    }
-
-    my $stylesheet = $xslt->parse_stylesheet_file($style);
-
-    my $result = try {
-        $stylesheet->transform($doc) or die("XSLT transform failed: $!");
-    }
-    catch {
-        for my $line (split(/\n/, $_)) {
-            if ($line =~ /^(\d\d\d)(?:\s+(.*))?\z/) {
-                my $status = $1;
-                my $message = defined($2) ? $2 : '';
-
-                $r->[0] = $status;
-                $headers->set('Content-Type', 'text/plain');
-                $headers->set('Content-Length', length($message));
-                $r->[2] = [ $message ];
-
-                return undef; # from catch block
+        if (!$xslt) {
+            if ($self->cache) {
+                require XML::LibXSLT::Cache;
+                $xslt = XML::LibXSLT::Cache->new;
+            }
+            else {
+                $xslt = XML::LibXSLT->new;
             }
         }
 
-        die($_);
-    };
+        my $path = $self->path;
+        $xsl_file = File::Spec->catfile($path, $xsl_file)
+            if defined($path) && !File::Spec->file_name_is_absolute($xsl_file);
 
-    if ($result) {
-        my $output     = $stylesheet->output_as_bytes($result);
+        my $stylesheet = $xslt->parse_stylesheet_file($xsl_file);
         my $media_type = $stylesheet->media_type();
         my $encoding   = $stylesheet->output_encoding();
 
+        my $headers = Plack::Util::headers($res->[1]);
+        $headers->remove('Content-Encoding');
+        $headers->remove('Transfer-Encoding');
         $headers->set('Content-Type', "$media_type; charset=$encoding");
-        $headers->set('Content-Length', length($output));
-        $r->[2] = [ $output ];
-    }
 
-    return $r;
+        if ($res->[2]) {
+            my ($output, $error) = $self->_xform($stylesheet, $res->[2]);
+
+            if (defined($error)) {
+                # Try to convert error to HTTP response.
+
+                my ($status, $message);
+
+                for my $line (split(/\n/, $error)) {
+                    if ($line =~ /^(\d\d\d)(?:\s+(.*))?\z/) {
+                        $status  = $1;
+                        $message = defined($2) ? $2 : '';
+                        last;
+                    }
+                }
+
+                die($error) if !defined($status);
+
+                $res->[0] = $status;
+                $headers->set('Content-Type', 'text/plain');
+                $headers->set('Content-Length', length($message));
+                $res->[2] = [ $message ];
+            }
+            else {
+                $headers->set('Content-Length', length($output));
+                $res->[2] = [ $output ];
+            }
+        }
+        else {
+            # PSGI streaming
+
+            my ($done, @chunks);
+
+            return sub {
+                my $chunk = shift;
+
+                return undef if $done;
+
+                if (defined($chunk)) {
+                    push(@chunks, $chunk);
+                    return '';
+                }
+                else {
+                    $done = 1;
+                    my ($output, $error) =
+                        $self->_xform($stylesheet, \@chunks);
+                    die($error) if defined($error);
+                    return $output;
+                }
+            }
+        }
+    });
 }
 
-sub _parse_body {
-    my ($self, $body) = @_;
+sub _xform {
+    my ($self, $stylesheet, $body) = @_;
 
     if (!$parser) {
         my $options = $self->parser_options;
@@ -88,18 +113,27 @@ sub _parse_body {
                 : XML::LibXML->new;
     }
 
-    my $doc;
+    my ($doc, $output, $error);
 
     if (ref($body) eq 'ARRAY') {
-        my $xml = join('', @$body);
-
-        $doc = $parser->parse_string($xml);
+        $doc = $parser->parse_string(join('', @$body));
     }
     else {
         $doc = $parser->parse_fh($body);
     }
 
-    return $doc;
+    my $result = try {
+        $stylesheet->transform($doc) or die("XSLT transform failed: $!");
+    }
+    catch {
+        $error = defined($_) ? $_ : 'Unknown error';
+        undef;
+    };
+
+    $output = $stylesheet->output_as_bytes($result)
+        if $result;
+
+    return ($output, $error);
 }
 
 sub _cache_hits {
