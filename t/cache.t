@@ -1,7 +1,6 @@
 use strict;
 
 use Test::More tests => 15;
-use Test::Deep;
 
 BEGIN {
     use_ok('Plack::Middleware::XSLT');
