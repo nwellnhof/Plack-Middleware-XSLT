@@ -7,7 +7,6 @@ use warnings;
 use parent 'Plack::Middleware';
 
 use File::Spec;
-use HTTP::Exception ();
 use Plack::Util::Accessor qw(cache path parser_options);
 use Try::Tiny;
 use XML::LibXML 1.62;
@@ -27,23 +26,11 @@ sub call {
     $style = File::Spec->catfile($path, $style)
         if defined($path) && !File::Spec->file_name_is_absolute($style);
 
-    my $doc = $self->_parse_body($r->[2]);
-
-    my ($output, $media_type, $encoding) = $self->_xform($style, $doc);
-
     my $headers = Plack::Util::headers($r->[1]);
     $headers->remove('Content-Encoding');
     $headers->remove('Transfer-Encoding');
-    $headers->set('Content-Type', "$media_type; charset=$encoding");
-    $headers->set('Content-Length', length($output));
 
-    $r->[2] = [ $output ];
-
-    return $r;
-}
-
-sub _xform {
-    my ($self, $style, $doc) = @_;
+    my $doc = $self->_parse_body($r->[2]);
 
     if (!$xslt) {
         if ($self->cache) {
@@ -62,16 +49,33 @@ sub _xform {
     }
     catch {
         for my $line (split(/\n/, $_)) {
-            HTTP::Exception->throw($1) if $line =~ /^(\d\d\d)(?:\s|\z)/;
+            if ($line =~ /^(\d\d\d)(?:\s+(.*))?\z/) {
+                my $status = $1;
+                my $message = defined($2) ? $2 : '';
+
+                $r->[0] = $status;
+                $headers->set('Content-Type', 'text/plain');
+                $headers->set('Content-Length', length($message));
+                $r->[2] = [ $message ];
+
+                return undef; # from catch block
+            }
         }
+
         die($_);
     };
 
-    my $output     = $stylesheet->output_as_bytes($result);
-    my $media_type = $stylesheet->media_type();
-    my $encoding   = $stylesheet->output_encoding();
+    if ($result) {
+        my $output     = $stylesheet->output_as_bytes($result);
+        my $media_type = $stylesheet->media_type();
+        my $encoding   = $stylesheet->output_encoding();
 
-    return ($output, $media_type, $encoding);
+        $headers->set('Content-Type', "$media_type; charset=$encoding");
+        $headers->set('Content-Length', length($output));
+        $r->[2] = [ $output ];
+    }
+
+    return $r;
 }
 
 sub _parse_body {
@@ -159,11 +163,14 @@ document. See L<XML::LibXML::Parser/"PARSER OPTIONS">.
 
 =back
 
-=head1 HTTP EXCEPTIONS
+=head1 CREATING HTTP ERRORS WITH XSL:MESSAGE
 
 If the transform exits via C<<xsl:message terminate="yes">> and the
 message contains a line starting with a three-digit HTTP response status
-code, a corresponding L<HTTP::Exception> is thrown.
+code and an optional message, a corresponding HTTP error response is
+created. For example:
+
+    <xsl:message terminate="yes">404 Not found</xsl:message>
 
 =cut
 
